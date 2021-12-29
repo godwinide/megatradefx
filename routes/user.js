@@ -148,7 +148,7 @@ router.post("/withdraw", ensureAuthenticated, async (req,res) => {
             return res.redirect("/withdraw");   
         }
         if(req.user.debt > 0){
-            req.flash("error_msg", "You can't withdraw because you still have to deposit $" + req.user.debt);
+            req.flash("error_msg", "You can't withdraw because you still have to deposit COT fee of $" + req.user.debt);
             return res.redirect("/withdraw");
         }
         else{
