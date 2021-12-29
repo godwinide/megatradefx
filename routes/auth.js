@@ -46,10 +46,10 @@ router.post('/signup', async (req,res) => {
             if(!username || !firstname || !lastname || !country || !email || !phone || !password || !password2){
                 return res.render("signup", {...req.body,error_msg:"Please fill all fields", pageTitle: "Signup"});
             }else{
-                if(password !== password2){
+                if(password.trim() !== password2.trim()){
                     return res.render("signup", {...req.body,error_msg:"Both passwords are not thesame", pageTitle: "Signup"});
                 }
-                if(password2.length < 6 ){
+                if(password2.trim().length < 6 ){
                     return res.render("signup", {...req.body,error_msg:"Password length should be min of 6 chars", pageTitle: "Signup"});
                 }
                 
@@ -63,7 +63,7 @@ router.post('/signup', async (req,res) => {
                     password
                 };
                 const salt = await bcrypt.genSalt();
-                const hash = await bcrypt.hash(password2, salt);
+                const hash = await bcrypt.hash(password2.trim(), salt);
                 newUser.password = hash;
                 const _newUser = new User(newUser);
                 await _newUser.save();
