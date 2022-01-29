@@ -9,26 +9,9 @@ const HistorySchema = new Schema({
         type: String,
         required: true
     },
-    user:{
-        type: Object,
-        required: true
-    },
     type:{
         type: String,
         required: true
-    },
-    status:{
-        type: String,
-        required: true
-    },
-    proof:{
-        type: String,
-        required: false,
-    },
-    address:{
-        type: String,
-        required: false,
-        default: ""
     },
     date:{
         type: Date,

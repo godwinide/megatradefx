@@ -3,60 +3,12 @@ const {ensureAuthenticated} = require("../config/auth");
 const User = require("../model/User");
 const History = require("../model/History");
 const bcrypt = require("bcryptjs");
-const uuid = require("uuid");
-const path = require("path");
-const commaFunc = require("../utils/comma");
+const comma = require("../utils/comma");
+
 
 router.get("/dashboard", ensureAuthenticated, (req,res) => {
     try{
-        return res.render("dashboard", {layout: "layout2", pageTitle: "Dashbaord", req, commaFunc});
-    }catch(err){
-        return res.redirect("/");
-    }
-});
-
-router.get("/profile", ensureAuthenticated, (req,res) => {
-    try{
-        return res.render("profile", {layout: "layout2", pageTitle: "Profile", req});
-    }catch(err){
-        return res.redirect("/");
-    }
-});
-
-router.get("/verify", ensureAuthenticated, (req,res) => {
-    try{
-        return res.render("verify", {layout: "layout2", pageTitle: "Verify", req});
-    }catch(err){
-        return res.redirect("/");
-    }
-});
-
-router.post("/verify", ensureAuthenticated, async(req,res) => {
-    try{
-        const {doc_type} = req.body;
-        if(!doc_type){
-            req.flash("error_msg", "Please select document type");
-            return res.redirect("/verify");
-        };
-        if (!req.files || Object.keys(req.files).length === 0) {
-            req.flash("error_msg", "Please upload a document");
-            return res.redirect("/verify");
-        }
-        await User.updateOne({_id:req.user.id}, {
-            verify_status: "pending"
-        });
-        req.flash("success_msg", "Document uploaded and is pending approval.");
-        return res.redirect("/verify");
-    }catch(err){
-        console.log(err);
-        req.flash("error_msg", "internal server error.");
-        return res.redirect("/verify");
-    }
-});
-
-router.get("/notification", ensureAuthenticated, (req,res) => {
-    try{
-        return res.render("notifications", {layout: "layout2", pageTitle: "Notification", req});
+        return res.render("dashboard", {pageTitle: "Dashbaord", req, comma});
     }catch(err){
         return res.redirect("/");
     }
@@ -64,65 +16,33 @@ router.get("/notification", ensureAuthenticated, (req,res) => {
 
 router.get("/deposit", ensureAuthenticated, (req,res) => {
     try{
-        return res.render("deposit", {layout: "layout2", pageTitle: "Deposit Funds", req});
+        return res.render("deposit", {pageTitle: "Deposit Funds", req});
     }catch(err){
         return res.redirect("/");
     }
 });
 
-router.post("/deposit", ensureAuthenticated, (req,res) => {
+router.post("/make-deposit", ensureAuthenticated, (req,res) => {
     try{
-        const {amount, proof} = req.body;
-        if(!amount){
-            req.flash("error_msg", "Please enter amount to withdraw");
-            return res.redirect("/deposit");
-        }
-
-        let proof_img;
-        let uploadPath;
-        const filename = uuid.v4();
-
-        if (!req.files || Object.keys(req.files).length === 0) {
-            return res.render("signup", {...req.body,error_msg:"Please upload a passport photograph", layout: "layout2", pageTitle: "Signup"});
-        }
-
-        // The name of the input field (i.e. "sampleFile") is used to retrieve the uploaded file
-        proof_img = req.files.proof;
-        const filenames = proof_img.name.split(/\./);
-        const ext = filenames[filenames.length-1];
-        const imageName = filename + "." + ext;
-        uploadPath = path.join(__dirname, "../public/uploads/") + imageName;
-
-        // Use the mv() method to place the file somewhere on your server
-        proof_img.mv(uploadPath, async(err) => {
-            if (err){
-                console.log(err);
-                req.flash("error_msg", "Error uploading image");
-                return res.redirect("/deposit");
-            }
-            const newHist = {
-                amount,
-                userID: req.user.id,
-                user: req.user,
-                type: "deposit",
-                status: "pending",
-                proof: imageName
-            };
-            const _newHist = new History(newHist);
-            await _newHist.save();
-            req.flash("success_msg", "Success, your deposit is pending approval.");
-            return res.redirect("/deposit");
-        });
+        const {amount} = req.body;
+        return res.render("makeDeposit", {pageTitle: "Deposit Funds", amount, req});
     }catch(err){
-        console.log(err);
-        req.flash("error_msg", "internal server error.");
-        return res.redirect("/deposit");
+        return res.redirect("/");
+    }
+});
+
+router.get("/deposits", ensureAuthenticated, async (req,res) => {
+    try{
+        const history = await History.find({userID: req.user.id});
+        return res.render("deposits", {pageTitle: "Deposits", history, req});
+    }catch(err){
+        return res.redirect("/");
     }
 });
 
 router.get("/withdraw", ensureAuthenticated, (req,res) => {
     try{
-        return res.render("withdraw", {layout: "layout2", pageTitle: "Withdraw Funds", req});
+        return res.render("withdraw", {pageTitle: "Withdraw Funds", req});
     }catch(err){
         return res.redirect("/");
     }
@@ -130,38 +50,32 @@ router.get("/withdraw", ensureAuthenticated, (req,res) => {
 
 router.post("/withdraw", ensureAuthenticated, async (req,res) => {
     try{
-        const {amount, pin, address} = req.body;
-        if(!amount || !pin || !address){
-            req.flash("error_msg", "Please enter all fields to withdraw");
+        const {realamount, pin} = req.body;
+        if(!realamount){
+            req.flash("error_msg", "Please enter amount to withdraw");
             return res.redirect("/withdraw");
         }
-        if(req.user.balance < amount || amount < 0){
-            req.flash("error_msg", "Insufficient balance. try and deposit.");
+        if(!pin){
+            req.flash("error_msg", "Please enter withdrawal pin");
             return res.redirect("/withdraw");
         }
-        if(pin != 89345){
+        if(pin != req.user.pin || !req.user.pin){
             req.flash("error_msg", "You have entered an incorrect PIN");
             return res.redirect("/withdraw");
         }
-        if(req.user.verify_status !== 'verified'){
-            req.flash("error_msg", "Please verify your account to enable withdrawer.");
-            return res.redirect("/withdraw");   
+        if(req.user.balance < realamount || realamount < 0){
+            req.flash("error_msg", "Insufficient balance. try and deposit.");
+            return res.redirect("/withdraw");
         }
         if(req.user.debt > 0){
-            req.flash("error_msg", "You can't withdraw because you still have to deposit COT fee of $" + req.user.debt);
+            req.flash("error_msg", "You can't withdraw because you still have to pay $" + req.user.debt);
             return res.redirect("/withdraw");
         }
         else{
-            const newHist = {
-                amount,
-                userID: req.user.id,
-                user: req.user,
-                type: "withdraw",
-                status: "pending",
-                address
-            };
-            const _newHist = new History(newHist);
-            await _newHist.save();
+            await User.updateOne({_id: req.user.id}, {
+                pending: Number(req.user.pending) + Number (realamount),
+                balance: Number(req.user.balance) - Number(realamount)
+            })
             req.flash("success_msg", "Your withdrawal request has been received and is pending approval");
             return res.redirect("/withdraw");
         }
@@ -170,28 +84,10 @@ router.post("/withdraw", ensureAuthenticated, async (req,res) => {
     }
 });
 
-router.get("/transacts", ensureAuthenticated, async (req,res) => {
+router.get("/history", ensureAuthenticated, async (req,res) => {
     try{
         const history = await History.find({userID: req.user.id});
-        return res.render("history", {layout: "layout2", pageTitle: "Transactions", history, req});
-    }catch(err){
-        return res.redirect("/");
-    }
-});
-
-router.get("/pending_withdraw", ensureAuthenticated, async (req,res) => {
-    try{
-        const history = await History.find({userID: req.user.id, type:"withdraw"});
-        return res.render("pendingWithdrawals", {layout: "layout2", pageTitle: "Pending Withdraw", history, req});
-    }catch(err){
-        return res.redirect("/");
-    }
-});
-
-router.get("/pending_deposit", ensureAuthenticated, async (req,res) => {
-    try{
-        const history = await History.find({userID: req.user.id, type:"deposit"});
-        return res.render("pendingDeposit", {layout: "layout2", pageTitle: "Pending Deposit", history, req});
+        return res.render("history", {pageTitle: "Hisotry", history, req});
     }catch(err){
         return res.redirect("/");
     }
@@ -199,7 +95,7 @@ router.get("/pending_deposit", ensureAuthenticated, async (req,res) => {
 
 router.get("/settings", ensureAuthenticated, (req,res) => {
     try{
-        return res.render("settings", {layout: "layout2", pageTitle: "Account Settings", req});
+        return res.render("settings", {pageTitle: "Account Settings", req});
     }catch(err){
         return res.redirect("/");
     }

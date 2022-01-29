@@ -18,32 +18,51 @@ router.get("/about", (req,res) => {
     }
 });
 
-router.get("/faq", (req,res) => {
+router.get("/investment", (req,res) => {
     try{
-        return res.render("faq", {pageTitle: "FAQ", req});
+        return res.render("investment", {pageTitle: "Investment", req});
     }
     catch(err){
         return res.redirect("/");
     }
 });
 
-router.get("/features", (req,res) => {
+router.get("/partners", (req,res) => {
     try{
-        return res.render("features", {pageTitle: "Features", req});
+        return res.render("partners", {pageTitle: "Partners", req});
     }
     catch(err){
         return res.redirect("/");
     }
 });
 
-router.get("/plans", (req,res) => {
+router.get("/contact", (req,res) => {
     try{
-        return res.render("plans", {pageTitle: "plans", req});
+        return res.render("support", {pageTitle: "contact", req});
     }
     catch(err){
         return res.redirect("/");
     }
 });
+
+router.get("/terms", (req,res) => {
+    try{
+        return res.render("terms", {pageTitle: "Terms", req});
+    }
+    catch(err){
+        return res.redirect("/");
+    }
+});
+
+router.get("/forgot_password", (req,res) => {
+    try{
+        return res.render("forgot", {pageTitle: "Forgot Password"});
+    }
+    catch(err){
+        return res.redirect("/");
+    }
+});
+
 
 
 module.exports = router;
